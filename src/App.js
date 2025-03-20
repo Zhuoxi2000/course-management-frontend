@@ -19,13 +19,16 @@ import StudentDashboard from './pages/student/Dashboard';
 import StudentCourses from './pages/student/Courses';
 import StudentBookCourse from './pages/student/BookCourse';
 import StudentProfile from './pages/student/Profile';
-import StudentCourseDetail from './pages/student/CourseDetail';
+//import StudentCourseDetail from './pages/student/CourseDetail';
+import StudentCalendar from './pages/student/Calendar';
 
 import TeacherDashboard from './pages/teacher/Dashboard';
 import TeacherSchedule from './pages/teacher/Schedule';
+// import TeacherCourseDetail from './pages/teacher/CourseDetail';
+import TeacherCourse from './pages/teacher/Courses';
 import TeacherStudents from './pages/teacher/Students';
 import TeacherProfile from './pages/teacher/Profile';
-import TeacherCourseDetail from './pages/teacher/CourseDetail';
+import TeacherFeedback from './pages/teacher/Feedback';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminCourses from './pages/admin/Courses';
@@ -34,7 +37,6 @@ import AdminStudents from './pages/admin/Students';
 import AdminSettings from './pages/admin/Settings';
 
 import NotFound from './pages/NotFound';
-import StudentCalendar from './pages/student/Calendar';
 
 // 使用模拟数据提供一个默认的状态
 // 实际项目中这段代码应该从Redux获取状态
@@ -139,7 +141,7 @@ const App = () => {
           >
             <Route path="dashboard" element={<StudentDashboard />} />
             <Route path="courses" element={<StudentCourses />} />
-            <Route path="courses/:id" element={<StudentCourseDetail />} />
+            {/* <Route path="courses/:id" element={<StudentCourseDetail />} /> */}
             <Route path="book-course" element={<StudentBookCourse />} />
             <Route path="profile" element={<StudentProfile />} />
             <Route path="calendar" element={<StudentCalendar />} />
@@ -156,9 +158,11 @@ const App = () => {
           >
             <Route path="dashboard" element={<TeacherDashboard />} />
             <Route path="schedule" element={<TeacherSchedule />} />
-            <Route path="courses/:id" element={<TeacherCourseDetail />} />
+            {/* <Route path="courses/:id" element={<TeacherCourseDetail />} /> */}
+            <Route path="courses" element={<TeacherCourse />} />
             <Route path="students" element={<TeacherStudents />} />
             <Route path="profile" element={<TeacherProfile />} />
+            <Route path="feedback" element={<TeacherFeedback />} />
           </Route>
           
           {/* 管理员路由 */}
