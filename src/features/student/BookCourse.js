@@ -1,4 +1,4 @@
-// src/pages/student/BookCourse.tsx
+// src/pages/student/BookCourse.js
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -15,42 +15,84 @@ import {
   Spin, 
   Row, 
   Col, 
-  Divider 
+  Divider,
+  Typography 
 } from 'antd';
 import { ClockCircleOutlined, EnvironmentOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { useDispatch, useSelector } from 'react-redux';
 import dayjs from 'dayjs';
-import { studentAPI } from '../../services/api';
 
 const { Step } = Steps;
 const { Option } = Select;
 const { TextArea } = Input;
+const { Title, Text } = Typography;
 
 const BookCourse = () => {
   const [current, setCurrent] = useState(0);
-  const [availableDates, setAvailableDates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [courseType, setCourseType] = useState('online');
   const [form] = Form.useForm();
-  const { user } = useSelector(state => state.auth);
   
-  // 获取可约时间
+  // 模拟数据 - 可预约的日期和时间段
+  const [availableDates, setAvailableDates] = useState([]);
+  
+  // 模拟获取数据
   useEffect(() => {
-    const fetchAvailability = async () => {
-      setLoading(true);
-      try {
-        const response = await studentAPI.getMatchingAvailability();
-        setAvailableDates(response);
-      } catch (error) {
-        message.error('获取可约时间失败，请稍后再试');
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
     
-    fetchAvailability();
+    // 模拟API请求延迟
+    setTimeout(() => {
+      // 生成未来14天的模拟数据
+      const mockData = [];
+      const today = dayjs();
+      
+      for (let i = 1; i < 14; i++) {
+        // 只添加工作日 (1-5是周一到周五)
+        const date = today.add(i, 'day');
+        const weekday = date.day();
+        
+        if (weekday >= 1 && weekday <= 5) {
+          // 生成随机时间段数量 (1-3个)
+          const slots = [];
+          const slotsCount = Math.floor(Math.random() * 3) + 1;
+          
+          // 上午时间段
+          if (Math.random() > 0.3) {
+            slots.push({
+              start: '09:00',
+              end: '10:30'
+            });
+          }
+          
+          // 下午时间段
+          if (Math.random() > 0.4) {
+            slots.push({
+              start: '14:00',
+              end: '15:30'
+            });
+          }
+          
+          // 傍晚时间段
+          if (Math.random() > 0.5) {
+            slots.push({
+              start: '19:00',
+              end: '20:30'
+            });
+          }
+          
+          if (slots.length > 0) {
+            mockData.push({
+              date: date.format('YYYY-MM-DD'),
+              slots: slots
+            });
+          }
+        }
+      }
+      
+      setAvailableDates(mockData);
+      setLoading(false);
+    }, 1000);
   }, []);
   
   // 日历单元格渲染
@@ -60,7 +102,11 @@ const BookCourse = () => {
     
     if (matchDate) {
       return (
-        <Badge status="success" text={`${matchDate.slots.length}个可用时段`} />
+        <Badge 
+          status="success" 
+          text={`${matchDate.slots.length}个可用时段`}
+          style={{ fontSize: '12px' }}
+        />
       );
     }
     
@@ -88,7 +134,7 @@ const BookCourse = () => {
     return matchDate ? matchDate.slots : [];
   };
   
-  // 预约课程
+  // 模拟预约课程
   const handleBookCourse = async () => {
     if (!selectedDate || !selectedTimeSlot) {
       message.error('请选择日期和时间段');
@@ -98,24 +144,15 @@ const BookCourse = () => {
     setLoading(true);
     
     try {
-      const [startTime, endTime] = selectedTimeSlot.split('-');
       const formValues = await form.validateFields();
       
-      const data = {
-        teacher_id: user.teacher?.id, // 假设用户对象中包含了绑定的老师ID
-        start_time: `${selectedDate}T${startTime}:00`,
-        end_time: `${selectedDate}T${endTime}:00`,
-        course_type: courseType,
-        location: courseType === 'offline' ? formValues.location : null,
-        meeting_link: courseType === 'online' ? formValues.meetingLink : null,
-        notes: formValues.notes
-      };
+      // 模拟API请求延迟
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      await studentAPI.bookCourse(data);
       message.success('课程预约成功，等待教师确认');
       setCurrent(current + 1);
     } catch (error) {
-      message.error('预约失败，请稍后再试');
+      message.error('表单验证失败，请检查输入');
     } finally {
       setLoading(false);
     }
@@ -129,15 +166,14 @@ const BookCourse = () => {
         <Spin spinning={loading}>
           <Row gutter={16}>
             <Col span={16}>
-              <Card title="选择日期">
+              <Card title="选择日期" className="calendar-card">
                 <Calendar 
                   dateCellRender={dateCellRender} 
                   onSelect={handleDateSelect}
                   disabledDate={(current) => {
                     // 禁用今天之前的日期和没有可用时段的日期
-                    const date = current.format('YYYY-MM-DD');
                     return current < dayjs().startOf('day') || 
-                           !availableDates.some(item => item.date === date);
+                           !availableDates.some(item => item.date === current.format('YYYY-MM-DD'));
                   }}
                 />
               </Card>
@@ -149,8 +185,8 @@ const BookCourse = () => {
               >
                 {selectedDate ? (
                   <div>
-                    <p>日期: {selectedDate}</p>
-                    <p>可用时段: {getAvailableTimeSlots().length} 个</p>
+                    <p><strong>日期:</strong> {selectedDate}</p>
+                    <p><strong>可用时段:</strong> {getAvailableTimeSlots().length} 个</p>
                   </div>
                 ) : (
                   <div>请在日历中选择一个有可用时段的日期</div>
@@ -168,9 +204,12 @@ const BookCourse = () => {
                         <Radio 
                           key={index} 
                           value={`${slot.start}-${slot.end}`}
-                          style={{ display: 'block', marginBottom: 8 }}
+                          style={{ display: 'block', marginBottom: 12 }}
                         >
-                          <ClockCircleOutlined /> {slot.start} - {slot.end}
+                          <ClockCircleOutlined style={{ marginRight: 8 }} /> 
+                          <span style={{ fontSize: '14px', fontWeight: selectedTimeSlot === `${slot.start}-${slot.end}` ? 'bold' : 'normal' }}>
+                            {slot.start} - {slot.end}
+                          </span>
                         </Radio>
                       ))}
                     </Radio.Group>
@@ -222,8 +261,8 @@ const BookCourse = () => {
               {courseType === 'online' ? (
                 <Form.Item 
                   name="meetingLink" 
-                  label="会议链接" 
-                  rules={[{ required: true, message: '请输入会议链接' }]}
+                  label="会议平台" 
+                  rules={[{ required: true, message: '请选择会议平台' }]}
                 >
                   <Select placeholder="选择会议平台">
                     <Option value="腾讯会议">腾讯会议</Option>
@@ -294,8 +333,8 @@ const BookCourse = () => {
   };
   
   return (
-    <div>
-      <h2>预约课程</h2>
+    <div className="book-course-container">
+      <Title level={2}>预约课程</Title>
       <Divider />
       
       <Steps current={current} style={{ marginBottom: 24 }}>
