@@ -34,6 +34,7 @@ import AdminStudents from './pages/admin/Students';
 import AdminSettings from './pages/admin/Settings';
 
 import NotFound from './pages/NotFound';
+import StudentCalendar from './pages/student/Calendar';
 
 // 使用模拟数据提供一个默认的状态
 // 实际项目中这段代码应该从Redux获取状态
@@ -141,6 +142,7 @@ const App = () => {
             <Route path="courses/:id" element={<StudentCourseDetail />} />
             <Route path="book-course" element={<StudentBookCourse />} />
             <Route path="profile" element={<StudentProfile />} />
+            <Route path="calendar" element={<StudentCalendar />} />
           </Route>
           
           {/* 教师路由 */}
