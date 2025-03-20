@@ -1,4 +1,4 @@
-// src/pages/admin/Courses.tsx
+// src/pages/admin/Courses.js
 import React, { useState, useEffect } from 'react';
 import { 
   Table, 
@@ -15,7 +15,9 @@ import {
   Modal, 
   Form, 
   message,
-  Tooltip
+  Tooltip,
+  Typography,
+  Divider
 } from 'antd';
 import { 
   SearchOutlined, 
@@ -23,243 +25,382 @@ import {
   ReloadOutlined, 
   EditOutlined, 
   DeleteOutlined,
-  EyeOutlined
+  EyeOutlined,
+  FilterOutlined,
+  ExportOutlined
 } from '@ant-design/icons';
-import { adminAPI } from '../../services/api';
+import CourseForm from '../../components/course/CourseForm';
 import dayjs from 'dayjs';
 
-const { RangePicker } = DatePicker;
+const { Title, Text } = Typography;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
-const CoursesManagement = () => {
+// 模拟数据 - 课程列表
+const mockCourses = [
+  {
+    key: '1',
+    id: 1,
+    title: '高级英语会话',
+    start_time: '2025-03-20 14:00:00',
+    end_time: '2025-03-20 16:00:00',
+    student_id: 1,
+    teacher_id: 1,
+    student_name: '王小明',
+    teacher_name: '李老师',
+    status: 'confirmed',
+    course_type: 'online',
+    meeting_link: '腾讯会议',
+    notes: '重点练习口语对话',
+    created_at: '2025-03-15 10:00:00',
+    updated_at: '2025-03-15 10:00:00'
+  },
+  {
+    key: '2',
+    id: 2,
+    title: '数学分析',
+    start_time: '2025-03-22 14:00:00',
+    end_time: '2025-03-22 16:00:00',
+    student_id: 2,
+    teacher_id: 2,
+    student_name: '李小红',
+    teacher_name: '张老师',
+    status: 'confirmed',
+    course_type: 'offline',
+    location: '教学楼302',
+    notes: '带上教材和计算器',
+    created_at: '2025-03-15 10:00:00',
+    updated_at: '2025-03-15 10:00:00'
+  },
+  {
+    key: '3',
+    id: 3,
+    title: '英语写作',
+    start_time: '2025-03-25 19:00:00',
+    end_time: '2025-03-25 20:30:00',
+    student_id: 3,
+    teacher_id: 1,
+    student_name: '张小军',
+    teacher_name: '李老师',
+    status: 'pending',
+    course_type: 'online',
+    meeting_link: '腾讯会议',
+    notes: '写作训练，提前准备好题目',
+    created_at: '2025-03-15 10:00:00',
+    updated_at: '2025-03-15 10:00:00'
+  },
+  {
+    key: '4',
+    id: 4,
+    title: '物理实验',
+    start_time: '2025-03-18 14:00:00',
+    end_time: '2025-03-18 17:00:00',
+    student_id: 4,
+    teacher_id: 3,
+    student_name: '刘小华',
+    teacher_name: '王老师',
+    status: 'completed',
+    course_type: 'offline',
+    location: '实验楼201',
+    notes: '实验室安全注意事项',
+    created_at: '2025-03-10 10:00:00',
+    updated_at: '2025-03-10 10:00:00'
+  },
+  {
+    key: '5',
+    id: 5,
+    title: '化学课程',
+    start_time: '2025-03-19 09:00:00',
+    end_time: '2025-03-19 11:00:00',
+    student_id: 5,
+    teacher_id: 4,
+    student_name: '陈小玲',
+    teacher_name: '赵老师',
+    status: 'cancelled',
+    course_type: 'offline',
+    location: '教学楼405',
+    notes: '临时取消，学生请假',
+    created_at: '2025-03-12 10:00:00',
+    updated_at: '2025-03-12 10:00:00'
+  },
+];
+
+// 模拟数据 - 教师列表
+const mockTeachers = [
+  { id: 1, name: '李老师', specialization: '英语' },
+  { id: 2, name: '张老师', specialization: '数学' },
+  { id: 3, name: '王老师', specialization: '物理' },
+  { id: 4, name: '赵老师', specialization: '化学' },
+  { id: 5, name: '刘老师', specialization: '计算机' },
+];
+
+// 模拟数据 - 学生列表
+const mockStudents = [
+  { id: 1, name: '王小明' },
+  { id: 2, name: '李小红' },
+  { id: 3, name: '张小军' },
+  { id: 4, name: '刘小华' },
+  { id: 5, name: '陈小玲' },
+];
+
+const Courses = () => {
   const [courses, setCourses] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [filteredCourses, setFilteredCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState('add'); // 'add' 或 'edit'
-  const [editingCourse, setEditingCourse] = useState(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [currentCourse, setCurrentCourse] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [filters, setFilters] = useState({
-    status: 'all',
+    status: undefined,
+    course_type: undefined,
     teacher_id: undefined,
     student_id: undefined,
-    date_range: null,
+    date_range: undefined,
+    keyword: '',
   });
+  
   const [form] = Form.useForm();
-
-  // 获取课程数据
+  
+  // 加载课程数据
   useEffect(() => {
-    fetchCourses();
-    fetchTeachers();
-    fetchStudents();
+    const loadCourses = async () => {
+      setLoading(true);
+      // 模拟API加载延迟
+      setTimeout(() => {
+        setCourses(mockCourses);
+        setFilteredCourses(mockCourses);
+        setLoading(false);
+      }, 800);
+    };
+    
+    loadCourses();
   }, []);
-
-  // 获取课程列表
-  const fetchCourses = async () => {
-    setLoading(true);
-    try {
-      const params = {};
-      
-      if (filters.status && filters.status !== 'all') {
-        params.status = filters.status;
-      }
-      
-      if (filters.teacher_id) {
-        params.teacher_id = filters.teacher_id;
-      }
-      
-      if (filters.student_id) {
-        params.student_id = filters.student_id;
-      }
-      
-      if (filters.date_range && filters.date_range.length === 2) {
-        params.start_date = filters.date_range[0].format('YYYY-MM-DD');
-        params.end_date = filters.date_range[1].format('YYYY-MM-DD');
-      }
-      
-      const response = await adminAPI.getCourses(params);
-      setCourses(response.map(course => ({
-        ...course,
-        key: course.id,
-      })));
-    } catch (error) {
-      message.error('获取课程列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 获取教师列表
-  const fetchTeachers = async () => {
-    try {
-      const response = await adminAPI.getUsers({ role: 'teacher' });
-      setTeachers(response.map(teacher => ({
-        ...teacher,
-        key: teacher.id,
-      })));
-    } catch (error) {
-      message.error('获取教师列表失败');
-    }
-  };
-
-  // 获取学生列表
-  const fetchStudents = async () => {
-    try {
-      const response = await adminAPI.getUsers({ role: 'student' });
-      setStudents(response.map(student => ({
-        ...student,
-        key: student.id,
-      })));
-    } catch (error) {
-      message.error('获取学生列表失败');
-    }
-  };
-
+  
   // 处理筛选条件变化
-  const handleFilterChange = (field, value) => {
+  const handleFilterChange = (key, value) => {
     setFilters({
       ...filters,
-      [field]: value,
+      [key]: value
     });
   };
-
+  
   // 应用筛选条件
   const applyFilters = () => {
-    fetchCourses();
+    let result = [...courses];
+    
+    if (filters.status) {
+      result = result.filter(course => course.status === filters.status);
+    }
+    
+    if (filters.course_type) {
+      result = result.filter(course => course.course_type === filters.course_type);
+    }
+    
+    if (filters.teacher_id) {
+      result = result.filter(course => course.teacher_id === filters.teacher_id);
+    }
+    
+    if (filters.student_id) {
+      result = result.filter(course => course.student_id === filters.student_id);
+    }
+    
+    if (filters.date_range && filters.date_range[0] && filters.date_range[1]) {
+      const startDate = filters.date_range[0].startOf('day');
+      const endDate = filters.date_range[1].endOf('day');
+      
+      result = result.filter(course => {
+        const courseDate = dayjs(course.start_time);
+        return courseDate.isAfter(startDate) && courseDate.isBefore(endDate);
+      });
+    }
+    
+    if (filters.keyword) {
+      const keyword = filters.keyword.toLowerCase();
+      result = result.filter(course => 
+        course.title.toLowerCase().includes(keyword) || 
+        course.student_name.toLowerCase().includes(keyword) || 
+        course.teacher_name.toLowerCase().includes(keyword)
+      );
+    }
+    
+    setFilteredCourses(result);
   };
-
+  
   // 重置筛选条件
   const resetFilters = () => {
     setFilters({
-      status: 'all',
+      status: undefined,
+      course_type: undefined,
       teacher_id: undefined,
       student_id: undefined,
-      date_range: null,
+      date_range: undefined,
+      keyword: '',
     });
-    fetchCourses();
+    setFilteredCourses(courses);
   };
-
-  // 打开添加课程模态框
-  const showAddModal = () => {
-    setModalType('add');
-    setEditingCourse(null);
-    form.resetFields();
-    setModalVisible(true);
-  };
-
-  // 打开编辑课程模态框
-  const showEditModal = (record) => {
-    setModalType('edit');
-    setEditingCourse(record);
+  
+  // 打开课程表单模态框
+  const showModal = (course = null) => {
+    setCurrentCourse(course);
+    setIsEditing(!!course);
     
-    form.setFieldsValue({
-      student_id: record.student_id,
-      teacher_id: record.teacher_id,
-      date_time: [
-        dayjs(record.start_time),
-        dayjs(record.end_time),
-      ],
-      course_type: record.course_type,
-      location: record.location || undefined,
-      meeting_link: record.meeting_link || undefined,
-      status: record.status,
-      notes: record.notes,
-    });
+    if (course) {
+      // 如果是编辑模式，设置表单初始值
+      form.setFieldsValue({
+        title: course.title,
+        student_id: course.student_id,
+        teacher_id: course.teacher_id,
+        start_time: dayjs(course.start_time),
+        end_time: dayjs(course.end_time),
+        course_type: course.course_type,
+        location: course.location,
+        meeting_link: course.meeting_link,
+        status: course.status,
+        notes: course.notes,
+      });
+    } else {
+      form.resetFields();
+    }
     
     setModalVisible(true);
   };
-
-  // 处理模态框取消
-  const handleModalCancel = () => {
-    setModalVisible(false);
+  
+  // 查看课程详情
+  const viewCourseDetail = (course) => {
+    setCurrentCourse(course);
+    setDetailModalVisible(true);
   };
-
+  
   // 处理课程表单提交
-  const handleCourseSubmit = async () => {
+  const handleSubmit = async (values) => {
     try {
-      const values = await form.validateFields();
-      
-      const courseData = {
-        student_id: values.student_id,
-        teacher_id: values.teacher_id,
-        start_time: values.date_time[0].format('YYYY-MM-DDTHH:mm:ss'),
-        end_time: values.date_time[1].format('YYYY-MM-DDTHH:mm:ss'),
-        course_type: values.course_type,
-        status: values.status,
-        notes: values.notes,
+      // 模拟API提交
+      const formattedValues = {
+        ...values,
+        start_time: values.start_time.format('YYYY-MM-DD HH:mm:ss'),
+        end_time: values.end_time.format('YYYY-MM-DD HH:mm:ss'),
       };
       
-      if (values.course_type === 'online') {
-        courseData.meeting_link = values.meeting_link;
-      } else {
-        courseData.location = values.location;
-      }
+      setLoading(true);
       
-      if (modalType === 'add') {
-        await adminAPI.createCourse(courseData);
-        message.success('添加课程成功');
+      // 模拟API延迟
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      if (isEditing) {
+        // 更新课程
+        const updatedCourses = courses.map(course => 
+          course.id === currentCourse.id ? { ...course, ...formattedValues } : course
+        );
+
+        setCourses(updatedCourses);
+        setFilteredCourses(applyFilters());
+        message.success('课程更新成功');
       } else {
-        await adminAPI.updateCourse(editingCourse.id, courseData);
-        message.success('更新课程成功');
+        // 添加课程
+        const newCourse = {
+          id: courses.length + 1,
+          key: (courses.length + 1).toString(),
+          ...formattedValues,
+          student_name: mockStudents.find(s => s.id === values.student_id)?.name || '',
+          teacher_name: mockTeachers.find(t => t.id === values.teacher_id)?.name || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        const newCourses = [...courses, newCourse];
+        setCourses(newCourses);
+        setFilteredCourses([...filteredCourses, newCourse]);
+        message.success('课程创建成功');
       }
       
       setModalVisible(false);
-      fetchCourses();
+      setLoading(false);
     } catch (error) {
-      console.error('提交表单错误:', error);
-      message.error('操作失败，请检查表单填写');
-    }
-  };
-
-  // 处理删除课程
-  const handleDelete = async (id) => {
-    setLoading(true);
-    try {
-      await adminAPI.deleteCourse(id);
-      message.success('删除课程成功');
-      fetchCourses();
-    } catch (error) {
-      message.error('删除课程失败');
-    } finally {
+      console.error('操作失败:', error);
+      message.error('操作失败，请重试');
       setLoading(false);
     }
   };
-
-  // 获取课程状态标签
-  const getStatusTag = (status) => {
-    switch (status) {
-      case 'pending':
-        return <Tag color="blue">待确认</Tag>;
-      case 'confirmed':
-        return <Tag color="green">已确认</Tag>;
-      case 'cancelled':
-        return <Tag color="red">已取消</Tag>;
-      case 'completed':
-        return <Tag color="purple">已完成</Tag>;
-      default:
-        return <Tag color="default">{status}</Tag>;
+  
+  // 处理课程删除
+  const handleDelete = async (id) => {
+    try {
+      setLoading(true);
+      
+      // 模拟API延迟
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // 删除课程
+      const updatedCourses = courses.filter(course => course.id !== id);
+      setCourses(updatedCourses);
+      setFilteredCourses(filteredCourses.filter(course => course.id !== id));
+      
+      message.success('课程删除成功');
+      setLoading(false);
+    } catch (error) {
+      console.error('删除失败:', error);
+      message.error('删除失败，请重试');
+      setLoading(false);
     }
   };
-
+  
+  // 获取状态标签颜色
+  const getStatusTagColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'orange';
+      case 'confirmed':
+        return 'green';
+      case 'cancelled':
+        return 'red';
+      case 'completed':
+        return 'blue';
+      default:
+        return 'default';
+    }
+  };
+  
+  // 获取状态文本
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'pending':
+        return '待确认';
+      case 'confirmed':
+        return '已确认';
+      case 'cancelled':
+        return '已取消';
+      case 'completed':
+        return '已完成';
+      default:
+        return status;
+    }
+  };
+  
   // 表格列定义
   const columns = [
     {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 80,
+      width: 60,
+    },
+    {
+      title: '课程',
+      dataIndex: 'title',
+      key: 'title',
     },
     {
       title: '开始时间',
       dataIndex: 'start_time',
       key: 'start_time',
-      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm'),
+      render: text => dayjs(text).format('YYYY-MM-DD HH:mm'),
     },
     {
       title: '结束时间',
       dataIndex: 'end_time',
       key: 'end_time',
-      render: (text) => dayjs(text).format('HH:mm'),
+      render: text => dayjs(text).format('HH:mm'),
     },
     {
       title: '学生',
@@ -275,13 +416,17 @@ const CoursesManagement = () => {
       title: '类型',
       dataIndex: 'course_type',
       key: 'course_type',
-      render: (text) => (text === 'online' ? '线上' : '线下'),
+      render: text => text === 'online' ? '线上' : '线下',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => getStatusTag(status),
+      render: status => (
+        <Tag color={getStatusTagColor(status)}>
+          {getStatusText(status)}
+        </Tag>
+      ),
     },
     {
       title: '操作',
@@ -289,13 +434,17 @@ const CoursesManagement = () => {
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="查看详情">
-            <Button type="text" icon={<EyeOutlined />} />
+            <Button 
+              type="text" 
+              icon={<EyeOutlined />} 
+              onClick={() => viewCourseDetail(record)}
+            />
           </Tooltip>
           <Tooltip title="编辑">
             <Button 
               type="text" 
               icon={<EditOutlined />} 
-              onClick={() => showEditModal(record)} 
+              onClick={() => showModal(record)}
             />
           </Tooltip>
           <Tooltip title="删除">
@@ -314,26 +463,41 @@ const CoursesManagement = () => {
   ];
 
   return (
-    <div>
-      <h2>课程管理</h2>
+    <div className="courses-management">
+      <div className="page-header" style={{ marginBottom: 16 }}>
+        <Title level={2}>课程管理</Title>
+      </div>
       
-      <Card style={{ marginBottom: 16 }}>
+      {/* 筛选器区域 */}
+      <Card className="filter-card" style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={8} lg={6}>
             <Select
-              placeholder="选择课程状态"
+              placeholder="课程状态"
               style={{ width: '100%' }}
               value={filters.status}
               onChange={(value) => handleFilterChange('status', value)}
+              allowClear
             >
-              <Option value="all">全部状态</Option>
               <Option value="pending">待确认</Option>
               <Option value="confirmed">已确认</Option>
               <Option value="cancelled">已取消</Option>
               <Option value="completed">已完成</Option>
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Select
+              placeholder="课程类型"
+              style={{ width: '100%' }}
+              value={filters.course_type}
+              onChange={(value) => handleFilterChange('course_type', value)}
+              allowClear
+            >
+              <Option value="online">线上课程</Option>
+              <Option value="offline">线下课程</Option>
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
             <Select
               placeholder="选择教师"
               style={{ width: '100%' }}
@@ -341,12 +505,12 @@ const CoursesManagement = () => {
               onChange={(value) => handleFilterChange('teacher_id', value)}
               allowClear
             >
-              {teachers.map(teacher => (
+              {mockTeachers.map(teacher => (
                 <Option key={teacher.id} value={teacher.id}>{teacher.name}</Option>
               ))}
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={8} lg={6}>
             <Select
               placeholder="选择学生"
               style={{ width: '100%' }}
@@ -354,26 +518,35 @@ const CoursesManagement = () => {
               onChange={(value) => handleFilterChange('student_id', value)}
               allowClear
             >
-              {students.map(student => (
+              {mockStudents.map(student => (
                 <Option key={student.id} value={student.id}>{student.name}</Option>
               ))}
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={8} lg={6}>
             <RangePicker 
               style={{ width: '100%' }} 
+              placeholder={['开始日期', '结束日期']}
               value={filters.date_range}
               onChange={(dates) => handleFilterChange('date_range', dates)}
             />
           </Col>
-          <Col span={24} style={{ textAlign: 'right' }}>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Input 
+              placeholder="搜索课程/学生/教师" 
+              value={filters.keyword}
+              onChange={(e) => handleFilterChange('keyword', e.target.value)}
+              allowClear
+              prefix={<SearchOutlined />}
+            />
+          </Col>
+          <Col xs={24} sm={24} md={8} lg={12} style={{ textAlign: 'right' }}>
             <Space>
               <Button 
-                type="primary" 
-                icon={<SearchOutlined />} 
+                icon={<FilterOutlined />} 
                 onClick={applyFilters}
               >
-                查询
+                应用筛选
               </Button>
               <Button 
                 icon={<ReloadOutlined />} 
@@ -383,8 +556,8 @@ const CoursesManagement = () => {
               </Button>
               <Button 
                 type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={showAddModal}
+                icon={<PlusOutlined />}
+                onClick={() => showModal()}
               >
                 添加课程
               </Button>
@@ -393,141 +566,127 @@ const CoursesManagement = () => {
         </Row>
       </Card>
       
-      <Table 
-        columns={columns} 
-        dataSource={courses} 
-        loading={loading} 
-        rowKey="id"
-        pagination={{ 
-          showSizeChanger: true, 
-          showQuickJumper: true, 
-          showTotal: (total) => `共 ${total} 条记录` 
-        }}
-      />
+      {/* 课程表格 */}
+      <Card bodyStyle={{ padding: 0 }}>
+        <Table 
+          columns={columns} 
+          dataSource={filteredCourses} 
+          loading={loading}
+          rowKey="id"
+          pagination={{ 
+            showSizeChanger: true, 
+            showQuickJumper: true, 
+            showTotal: (total) => `共 ${total} 条记录`,
+            pageSize: 10
+          }}
+        />
+      </Card>
       
-      {/* 添加/编辑课程模态框 */}
+      {/* 课程表单模态框 */}
       <Modal
-        title={modalType === 'add' ? '添加新课程' : '编辑课程'}
-        visible={modalVisible}
-        onCancel={handleModalCancel}
-        footer={[
-          <Button key="cancel" onClick={handleModalCancel}>
-            取消
-          </Button>,
-          <Button key="submit" type="primary" onClick={handleCourseSubmit}>
-            提交
-          </Button>,
-        ]}
-        width={700}
+        title={isEditing ? "编辑课程" : "添加课程"}
+        open={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={null}
+        width={800}
+        destroyOnClose={true}
       >
-        <Form
+        <CourseForm
           form={form}
-          layout="vertical"
-        >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="student_id"
-                label="学生"
-                rules={[{ required: true, message: '请选择学生' }]}
-              >
-                <Select placeholder="选择学生">
-                  {students.map(student => (
-                    <Option key={student.id} value={student.id}>{student.name}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="teacher_id"
-                label="教师"
-                rules={[{ required: true, message: '请选择教师' }]}
-              >
-                <Select placeholder="选择教师">
-                  {teachers.map(teacher => (
-                    <Option key={teacher.id} value={teacher.id}>{teacher.name}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item
-            name="date_time"
-            label="课程时间"
-            rules={[{ required: true, message: '请选择课程时间' }]}
-          >
-            <RangePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: '100%' }} />
-          </Form.Item>
-          
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="course_type"
-                label="课程类型"
-                rules={[{ required: true, message: '请选择课程类型' }]}
-                initialValue="online"
-              >
-                <Select>
-                  <Option value="online">线上课程</Option>
-                  <Option value="offline">线下课程</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="status"
-                label="课程状态"
-                rules={[{ required: true, message: '请选择课程状态' }]}
-                initialValue="pending"
-              >
-                <Select>
-                  <Option value="pending">待确认</Option>
-                  <Option value="confirmed">已确认</Option>
-                  <Option value="cancelled">已取消</Option>
-                  <Option value="completed">已完成</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item
-            noStyle
-            shouldUpdate={(prevValues, currentValues) =>
-              prevValues.course_type !== currentValues.course_type
-            }
-          >
-            {({ getFieldValue }) => {
-              const courseType = getFieldValue('course_type');
-              
-              return courseType === 'online' ? (
-                <Form.Item
-                  name="meeting_link"
-                  label="会议链接"
-                  rules={[{ required: true, message: '请输入会议链接' }]}
-                >
-                  <Input placeholder="请输入会议链接或平台" />
-                </Form.Item>
-              ) : (
-                <Form.Item
-                  name="location"
-                  label="上课地点"
-                  rules={[{ required: true, message: '请输入上课地点' }]}
-                >
-                  <Input placeholder="请输入上课地点" />
-                </Form.Item>
-              );
+          initialValues={currentCourse}
+          teachers={mockTeachers}
+          students={mockStudents}
+          isEdit={isEditing}
+          userRole="admin"
+          onFinish={handleSubmit}
+          onCancel={() => setModalVisible(false)}
+        />
+      </Modal>
+      
+      {/* 课程详情模态框 */}
+      <Modal
+        title="课程详情"
+        open={detailModalVisible}
+        onCancel={() => setDetailModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setDetailModalVisible(false)}>
+            关闭
+          </Button>,
+          <Button 
+            key="edit" 
+            type="primary" 
+            onClick={() => {
+              setDetailModalVisible(false);
+              showModal(currentCourse);
             }}
-          </Form.Item>
-          
-          <Form.Item name="notes" label="备注">
-            <Input.TextArea rows={4} placeholder="请输入备注信息" />
-          </Form.Item>
-        </Form>
+          >
+            编辑
+          </Button>
+        ]}
+        width={600}
+      >
+        {currentCourse && (
+          <div className="course-detail">
+            <Divider orientation="left">基本信息</Divider>
+            <Row gutter={[16, 8]}>
+              <Col span={12}>
+                <Text strong>课程名称：</Text> {currentCourse.title}
+              </Col>
+              <Col span={12}>
+                <Text strong>状态：</Text> 
+                <Tag color={getStatusTagColor(currentCourse.status)}>
+                  {getStatusText(currentCourse.status)}
+                </Tag>
+              </Col>
+              <Col span={12}>
+                <Text strong>开始时间：</Text> {dayjs(currentCourse.start_time).format('YYYY-MM-DD HH:mm')}
+              </Col>
+              <Col span={12}>
+                <Text strong>结束时间：</Text> {dayjs(currentCourse.end_time).format('YYYY-MM-DD HH:mm')}
+              </Col>
+              <Col span={12}>
+                <Text strong>课程类型：</Text> {currentCourse.course_type === 'online' ? '线上' : '线下'}
+              </Col>
+              <Col span={12}>
+                {currentCourse.course_type === 'online' ? (
+                  <>
+                    <Text strong>会议链接：</Text> {currentCourse.meeting_link}
+                  </>
+                ) : (
+                  <>
+                    <Text strong>上课地点：</Text> {currentCourse.location}
+                  </>
+                )}
+              </Col>
+            </Row>
+            
+            <Divider orientation="left">参与人员</Divider>
+            <Row gutter={[16, 8]}>
+              <Col span={12}>
+                <Text strong>学生：</Text> {currentCourse.student_name}
+              </Col>
+              <Col span={12}>
+                <Text strong>教师：</Text> {currentCourse.teacher_name}
+              </Col>
+            </Row>
+            
+            <Divider orientation="left">其他信息</Divider>
+            <Row gutter={[16, 8]}>
+              <Col span={24}>
+                <Text strong>备注：</Text> {currentCourse.notes || '无'}
+              </Col>
+              <Col span={12}>
+                <Text strong>创建时间：</Text> {dayjs(currentCourse.created_at).format('YYYY-MM-DD HH:mm')}
+              </Col>
+              <Col span={12}>
+                <Text strong>更新时间：</Text> {dayjs(currentCourse.updated_at).format('YYYY-MM-DD HH:mm')}
+              </Col>
+            </Row>
+          </div>
+        )}
       </Modal>
     </div>
   );
 };
 
-export default CoursesManagement;
+export default Courses;
